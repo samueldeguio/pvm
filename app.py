@@ -4,7 +4,6 @@ from rich.console import Console
 
 from include.PHPVersionManager import PHPVersionManager, PHPVersionManagerException
 from include.ConsoleHelper import ConsoleHelper
-from include.PHP import PHP
 
 # setup main app and console object
 app = typer.Typer()
@@ -40,7 +39,7 @@ def update():
     update:
         Fetch updates from PHP versions
     """
-    
+    PHPVersionManager.updateRepository()
 
 if __name__ == "__main__":
     try:
