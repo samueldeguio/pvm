@@ -1,5 +1,6 @@
 import requests
 import re
+import uuid
 
 from enum import Enum
 from datetime import datetime
@@ -19,7 +20,8 @@ class PHP():
     DOCS_ENDPOINT:
         URL of the PHP documentation
     """
-    __DOCS_ENDPOINT = "https://php.watch" #without final /
+    __DOCS_ENDPOINT = "https://php.watch" # without final /
+
 
     """
     STATUS_MAP:
@@ -34,8 +36,13 @@ class PHP():
         "Future Release" : Status.FUTURE_RELEASE,
     }
 
-    def __init__(self) -> None:
-        self.__data = PHP.fetchData()
+
+    def __init__(self, cache : dict = None, queue = None) -> None:
+        
+        self.__tasks = {}
+        self.__queue = queue
+        
+        self.__data = self.parseCache(cache) if cache else self.fetchData()
     
 
     def getMajorVersions(self) -> list:
@@ -114,14 +121,15 @@ class PHP():
         return False
     
 
-    def getAllVersions(self, json : bool = False) -> dict:
+    def getData(self, json : bool = False) -> dict:
         """
-        getAllVersions:
-            Get all versions
+        getData:
+            Get complete object data
 
         Returns:
             dict: all versions
         """
+
         data = self.__data
 
         if json:
@@ -133,9 +141,124 @@ class PHP():
 
         return data
 
+    def __flashQueue(self) -> None:
+        """
+        flashQueue:
+            Flash the queue object with the newest data
+        """
 
-    @classmethod
-    def fetchData(cls) -> dict:
+        if self.__queue: self.__queue.put(("tasks", self.__tasks))
+
+    def __addTask(self, name : str, outof : int = 100) -> int:
+        """
+        __addTask:
+            Add a task to the task log
+
+        Args:
+            task (str): the name of the operation
+            outof (int, optional): the completion max value. Defaults to 100.
+
+        Returns:
+            int: return the task id
+        """
+
+        taskid = uuid.uuid4()
+        
+        self.__tasks[taskid] = {
+            "id" : taskid,
+            "name" : name,
+            "outof" : outof,
+            "completed" : 0,
+            "logs" : []
+        }
+
+        self.__flashQueue()
+
+        return taskid
+
+
+    def __appendLog(self, task : int, message : str) -> None:
+        """
+        __appendLog:
+            Append a message to the task log
+
+        Args:
+            task (int): the task id to append the message to
+            message (str): the message to append
+        """
+        
+        # check if the task exists
+        if task not in self.__tasks.keys(): raise PHPException("Invalid Task ID given")
+
+        self.__tasks[task]["logs"].append(message)
+        self.__flashQueue()
+
+
+    def __advanceTask(self, task : int, amount : int = 1) -> None:
+        """
+        __advanceTask:
+            Advance a task in the task log
+        Args:
+            task (int): the task id to advance
+            amount (int, optional): The amount to advance the given task. Defaults to 1.
+        """
+
+        if task not in self.__tasks.keys(): raise PHPException("Invalid Task ID given")
+
+        self.__tasks[task]["completed"] += amount
+        self.__flashQueue()
+    
+
+    def __removeTask(self, task : int) -> None:
+        """
+        __removeTask:
+            Remove a task from the task log
+
+        Args:
+            task (int): the task id to remove
+        """
+
+        if task not in self.__tasks.keys(): raise PHPException("Invalid Task ID given")
+
+        self.__tasks.pop(task)
+        self.__flashQueue()
+    
+
+    def __clearTasks(self) -> None:
+        """
+        __clearTasks:
+            Clear all tasks from the task log
+        """
+        self.__tasks = {}
+        self.__flashQueue()
+
+
+    def parseCache(self, cache : dict) -> dict :
+        """
+        parseCache:
+            parse the raw cache into a valid one
+
+        Args:
+            cache (dict): the cache to parse
+
+        Raises:
+            PHPException: if the cache is invalid an exception is raised
+
+        Returns:
+            dict: returns the parsed cache
+        """
+
+        try:
+            for major in cache:
+                    cache[major]["date"] = datetime.strptime(cache[major]["date"], "%Y-%m-%d") if cache[major]["date"] else None
+                    cache[major]["status"] = Status(cache[major]["status"]) if cache[major]["status"] else None 
+                    for minor in cache[major]["releases"]:
+                        cache[major]["releases"][minor]["date"] = datetime.strptime(cache[major]["releases"][minor]["date"], "%Y-%m-%d") if cache[major]["releases"][minor]["date"] else None
+        except Exception:
+            raise PHPException("Invalid Cache Given")
+
+
+    def fetchData(self) -> dict:
         """
         fetchData:
             fetch from PHP documentation all required data
@@ -147,28 +270,34 @@ class PHP():
         data = {}
 
         # call the documentation and parse the response
-        response = requests.get("{}/versions".format(cls.__DOCS_ENDPOINT))
-        soup = BeautifulSoup(response.content, 'html.parser')
+        response = requests.get("{}/versions".format(PHP.__DOCS_ENDPOINT))
+        soup = BeautifulSoup(response.content, "html.parser")
 
         # find all containers
-        containers = soup.find_all('div', class_="version-item")
+        containers = soup.find_all("div", class_="version-item")
 
+        # start the fetch version task
+        fetch_vers_task = self.__addTask(name="[]Updating PHP Repository...", outof=len(containers))
+        
         # iterate over the PHP version elements and scrape the data
         for c in containers:
-
+                        
             # scrape version informations 
             version = c.find("h3", class_="is-3 title").text.strip()
             date = c.find("div", class_="tag--release-date").find_all("span")[1].text.strip() if c.find("div", class_="tag--release-date") else None            
             status = c.find("div", class_="tag--release-status").find_all("span")[1].text.strip() if c.find("div", class_="tag--release-status") else None
             latest = c.find("div", class_="tag--releases-list").find_all("span")[1].text.strip() if c.find("div", class_="tag--releases-list") else None
 
+            # advance the task by 1
+            self.__advanceTask(fetch_vers_task)
+            
             # check if the version has any release
             releases = {}
             if c.find("div", class_="tag--releases-list") != None :
                 
                 # go to the release list of the version
-                response = requests.get("{}/versions/{}/releases".format(cls.__DOCS_ENDPOINT, version))
-                soup = BeautifulSoup(response.content, 'html.parser')
+                response = requests.get("{}/versions/{}/releases".format(PHP.__DOCS_ENDPOINT, version))
+                soup = BeautifulSoup(response.content, "html.parser")
 
                 # attempt to find all releases in the timeline object
                 timeline = soup.find("div", class_="timeline")
@@ -193,16 +322,26 @@ class PHP():
                         # add the release to the releases list
                         releases[release] = {
                             "name": release,
-                            "date": datetime.strptime(release_date, '%Y-%m-%d') if release_date else None,
+                            "date": datetime.strptime(release_date, "%Y-%m-%d") if release_date else None,
                         }
 
 
             data[version] = {
                 "name" : version,
-                "date" : datetime.strptime(date, '%Y-%m-%d') if date else None,
+                "date" : datetime.strptime(date, "%Y-%m-%d") if date else None,
                 "status" : PHP.__STATUS_MAP[status] if status else None,
                 "latest" : latest if latest else None,
                 "releases" : releases
             }
 
+        # remove all active tasks
+        self.__clearTasks()
+        
         return data
+    
+    @property
+    def task(self):
+        return self.__tasks
+
+class PHPException(Exception):
+    pass
