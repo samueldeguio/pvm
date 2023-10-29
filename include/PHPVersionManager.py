@@ -9,7 +9,7 @@ from queue import Queue
 
 from rich.progress import Progress
 
-from include.PHP import PHP, PHPException
+from include.PHP import PHP
 
 class PHPVersionManager():
 
@@ -106,8 +106,6 @@ class PHPVersionManager():
             with open(cls.__REPOSITORY_FILE, "w") as f: json.dump(data, f)
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             raise PHPVersionManagerException("Could not update repository file")
         
         return True
