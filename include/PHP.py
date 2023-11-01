@@ -44,7 +44,7 @@ class PHP():
         self.__tasks = {}
         self.__queue = queue
         
-        self.__data = self.parseCache(cache) if cache else self.fetchData()
+        self.__data = self.__parseCache(cache) if cache else self.fetchData()
     
 
     def getMajorVersions(self) -> list:
@@ -238,9 +238,9 @@ class PHP():
         self.__flashQueue()
 
 
-    def parseCache(self, cache : dict) -> dict :
+    def __parseCache(self, cache : dict) -> dict :
         """
-        parseCache:
+        __parseCache:
             parse the raw cache into a valid one
 
         Args:
@@ -262,6 +262,7 @@ class PHP():
         except Exception:
             raise PHPException("Invalid Cache Given")
 
+        return cache
 
     def fetchData(self) -> dict:
         """
