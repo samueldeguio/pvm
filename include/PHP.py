@@ -2,6 +2,8 @@ import requests
 import re
 import uuid
 
+from typing import List, Union
+
 from enum import Enum
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -177,20 +179,23 @@ class PHP():
         return taskid
 
 
-    def __appendLog(self, task : int, message : str) -> None:
+    def __appendLog(self, task: int, message: Union[str, List[str]]) -> None:
         """
         __appendLog:
             Append a message to the task log
 
         Args:
             task (int): the task id to append the message to
-            message (str): the message to append
+            message (Union[str, List[str]]): the message or list of messages to append
         """
         
         # check if the task exists
         if task not in self.__tasks.keys(): raise PHPException("Invalid Task ID given")
 
-        self.__tasks[task]["logs"].append(message)
+        # parse the message
+        if isinstance(message, str): message = [message] 
+
+        self.__tasks[task]["logs"] += message
         self.__flashQueue()
 
 
@@ -267,7 +272,9 @@ class PHP():
             str: current PHP version
         """
 
+        # setup some varaiables
         data = {}
+        rels_pattern = re.compile(r"\/versions\/.*/releases\/(.*)")
 
         # call the documentation and parse the response
         response = requests.get("{}/versions".format(PHP.__DOCS_ENDPOINT))
@@ -277,7 +284,7 @@ class PHP():
         containers = soup.find_all("div", class_="version-item")
 
         # start the fetch version task
-        fetch_vers_task = self.__addTask(name="[]Updating PHP Repository...", outof=len(containers))
+        tvers = self.__addTask(name="Global Advancement : ", outof=len(containers))
         
         # iterate over the PHP version elements and scrape the data
         for c in containers:
@@ -288,13 +295,21 @@ class PHP():
             status = c.find("div", class_="tag--release-status").find_all("span")[1].text.strip() if c.find("div", class_="tag--release-status") else None
             latest = c.find("div", class_="tag--releases-list").find_all("span")[1].text.strip() if c.find("div", class_="tag--releases-list") else None
 
-            # advance the task by 1
-            self.__advanceTask(fetch_vers_task)
-            
+            # advance the task
+            self.__advanceTask(tvers)
+            self.__appendLog(tvers, [
+                f"Found Version [magenta italic]{version}[/] with following data...",
+                f"  Release Date : [bright_blue]{date}[/bright_blue]",
+                f"  Status : [bright_blue]{status}[/bright_blue]",
+                f"  Latest Release : [bright_blue]{latest}[/bright_blue]"
+            ])
+
             # check if the version has any release
             releases = {}
             if c.find("div", class_="tag--releases-list") != None :
                 
+                self.__appendLog(tvers, f"Fetching PHP {version} Releases...")
+
                 # go to the release list of the version
                 response = requests.get("{}/versions/{}/releases".format(PHP.__DOCS_ENDPOINT, version))
                 soup = BeautifulSoup(response.content, "html.parser")
@@ -303,14 +318,18 @@ class PHP():
                 timeline = soup.find("div", class_="timeline")
 
                 # if this is a future release, there are no events so skip it
-                if timeline != None:
-                    
-                    pattern = re.compile(r"\/versions\/.*/releases\/(.*)")
-                    res = timeline.find_all("a")
+                if timeline != None and (res := timeline.find_all("a")):
+                                            
+                    # create a second task to fetch all releases
+                    trels = self.__addTask(name=f"Storing PHP [magenta italic]{version}[/] Releases : ", outof=len(res))
 
                     for r in res:
-                        
-                        match = re.search(pattern, r["href"])
+
+                        # advance the task
+                        self.__advanceTask(trels)
+
+                        # attempt to match the release name
+                        match = re.search(rels_pattern, r["href"])
 
                         # skip all events on timeline that are not releases (they have no href)
                         if not match: continue
@@ -318,12 +337,17 @@ class PHP():
                         # get the release name and date
                         release = match.group(1)
                         release_date = r.parent.parent.find("time").text.strip() if r.parent.parent.find("time") else None
-
+                        
+                        self.__appendLog(trels, f"Found Release : [magenta italic]{release}[/] ([bright_blue]{release_date}[/bright_blue])")
+                        
                         # add the release to the releases list
                         releases[release] = {
                             "name": release,
                             "date": datetime.strptime(release_date, "%Y-%m-%d") if release_date else None,
                         }
+
+                        self.__appendLog(trels, f"[green] Release {release} aknowledged![/]")
+
 
 
             data[version] = {
@@ -334,9 +358,6 @@ class PHP():
                 "releases" : releases
             }
 
-        # remove all active tasks
-        self.__clearTasks()
-        
         return data
     
     @property

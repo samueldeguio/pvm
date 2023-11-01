@@ -7,7 +7,8 @@ from os.path import expanduser
 from threading import Thread
 from queue import Queue
 
-from rich.progress import Progress
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, RenderableColumn
+from rich.console import Console
 
 from include.PHP import PHP
 
@@ -48,7 +49,7 @@ class PHPVersionManager():
         
 
     @classmethod
-    def updateRepository(cls) -> bool:
+    def updateRepository(cls, console : Console  = None) -> bool:
         """
         updateRepository:
             Update the repository file with all available PHP versions
@@ -63,38 +64,70 @@ class PHPVersionManager():
         try:
 
             # setup some variable to keep track of the tasks and results
-            printed_tasks = {}
             data = {}
 
             # boot the queue object to pass data between threads
             queue = Queue()
 
-            # fetch updates from repository with another thread
             t = Thread(target=cls.__fetchUpdates, args=(queue,))
             t.start()
 
-            with Progress() as progress:
+            console.print("Updating PHP repository...", style="green")
+            with Progress(  
+                SpinnerColumn(spinner_name="line"),
+                TextColumn("Progress : "), 
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeRemainingColumn(),
+                TextColumn("{task.description}"), 
+            ) as progress:
+                
+                # setup some variables to keep track of the tasks and results
+                bar = None
+                g_log_idx = 0
+
                 while True:
-                    
                     eltype, eldata = queue.get()
                     
                     # if this is the final result, break the loop
-                    if eltype == "data": 
+                    if eltype == "data":
+                        progress.remove_task(bar)
                         data = eldata
                         break
 
                     # if this is a task, process the task queue                    
                     if eltype == "tasks":
-                        for taskid, task in eldata.items():
+                        
+                        # copy the object to prevent it from being modified while iterating
+                        tasks = eldata.copy()
 
-                            # create a new task if it does not exist
-                            if taskid not in printed_tasks.keys(): 
-                                taskbar = progress.add_task(task["name"], total=task["outof"], completed=task["completed"])
-                                printed_tasks[taskid] = taskbar
+                        # get main task (it is always the first one)
+                        task_ids = list(tasks.keys())
+                        taskid = task_ids[0]
+                        task = tasks[taskid]
+                        subtask = tasks[task_ids[len(task_ids)-1]]
+                        
+                        # generate the bar if it does not exist
+                        if bar is None:
+                            bar = progress.add_task(task["name"], total=task["outof"])
+                            current_completed = task["completed"]
                             
-                            # update the task progress
-                            progress.update(printed_tasks[taskid], completed=task["completed"])
-            
+                        # update the general task progress and logs interface
+                        if task["completed"] != current_completed : 
+                            progress.update(bar, completed=task["completed"])
+                            current_completed = task["completed"]
+                            progress.update(bar, description=subtask["name"])
+
+                        # print new logs arrived
+                        c_log_idx = 0
+                        for taskid in tasks:                             
+                            for log in tasks[taskid]['logs']:
+                                c_log_idx += 1 
+                                if c_log_idx > g_log_idx : console.print(log)
+
+                        # update the global log index
+                        g_log_idx = c_log_idx   
+
             # join the threads
             t.join()
 
@@ -102,8 +135,12 @@ class PHPVersionManager():
             if not os.path.exists(os.path.dirname(cls.__REPOSITORY_FILE)):
                 os.makedirs(os.path.dirname(cls.__REPOSITORY_FILE))
 
+            console.print("Writing repository file...")
+            
             # write it to the file
             with open(cls.__REPOSITORY_FILE, "w") as f: json.dump(data, f)
+
+            console.print("Repository file updated!", style="green")            
 
         except Exception as e:
             raise PHPVersionManagerException("Could not update repository file")

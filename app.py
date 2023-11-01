@@ -39,7 +39,7 @@ def update():
     update:
         Fetch updates from PHP versions
     """
-    PHPVersionManager.updateRepository()
+    PHPVersionManager.updateRepository(console=console)
 
 if __name__ == "__main__":
     try:
