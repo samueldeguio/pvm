@@ -9,8 +9,10 @@ from queue import Queue
 
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, RenderableColumn
 from rich.console import Console
+from rich.table import Table
+from rich import print
 
-from include.PHP import PHP
+from include.PHP import PHP, Status
 
 class PHPVersionManager():
 
@@ -25,7 +27,19 @@ class PHPVersionManager():
         Path to the repository file
     """
     __REPOSITORY_FILE =  os.path.join(__PVM_DIR, "PHP_REPOSITORY")
-
+    
+    """
+    STATUS_MAP:
+        Map of status to rich text description
+    """
+    __STATUS_MAP = {
+        Status.UNSUPPORTED : "[red blink]Unsupported[/]",
+        Status.SECURITY_FIX : "[yellow]Security Fix Only[/]",
+        Status.SUPPORTED : "[green]Supported[/]",
+        Status.LATEST : "[blue italic]Latest[/]",
+        Status.UPCOMING : "[magenta]Upcoming[/]",
+        Status.FUTURE_RELEASE : "[purple]Future Release[/]",
+    }
 
     @classmethod
     def checkDependencies(cls) -> bool :
@@ -46,7 +60,62 @@ class PHPVersionManager():
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
             raise PHPVersionManagerException("Docker CLI is not installed")
+
+    @classmethod
+    def listVersions(cls, console : Console, major = None) -> bool:
+        """
+        listVersions:
+            List all available PHP versions
+
+        Throws:
+            PHPVersionManagerException: if the repository file could not be read
+
+        Returns:
+            bool: True if the repository file was read, False otherwise
+        """
+
+        # load data from the repository file
+        php = PHP(cache=cls.__loadRepository())
+        data = php.getData()
         
+        # check given data
+        if major and major not in php.getMajorVersions() : raise PHPVersionManagerException("Invalid major version given")
+
+        # init the table
+        grid = Table(box=None)
+
+        if not major:
+
+            grid.add_column("Version")
+            grid.add_column("Release Date")
+            grid.add_column("Status")
+            grid.add_column("Latest", justify="right")
+            
+            for mj_idx, mj in data.items():
+                grid.add_row(
+                    "[bold]PHP {}[/]".format(mj["name"]),
+                    mj["date"].strftime("%Y-%m-%d") if mj["date"] else "---",
+                    cls.__STATUS_MAP[mj["status"]],
+                    mj["latest"] if mj["latest"] else "---"
+                )
+        else: 
+            data = data[major]["releases"]
+            if not data :
+                console.print(f"[white]No versions available yet for PHP {major}[/]")
+                return True
+
+            grid.add_column("Version")
+            grid.add_column("Release Date")
+
+            for mj_idx, mj in data.items(): 
+                grid.add_row(
+                    "[bold]PHP {}[/]".format(mj["name"]),
+                    mj["date"].strftime("%Y-%m-%d") if mj["date"] else "---",
+                )
+
+        print(grid)
+        
+        return True  
 
     @classmethod
     def updateRepository(cls, console : Console  = None) -> bool:
@@ -148,6 +217,26 @@ class PHPVersionManager():
         return True
     
     
+    def __loadRepository() -> dict:
+        """
+        __loadRepository:
+            Load the repository file
+
+        Throws:
+            PHPVersionManagerException: if the repository file could not be read
+
+        Returns:
+            dict: the repository data
+        """
+
+        # check if the repository file exists
+        if not os.path.exists(PHPVersionManager.__REPOSITORY_FILE): return {}
+        
+        # load the repository file
+        with open(PHPVersionManager.__REPOSITORY_FILE, "r") as f: data = json.load(f)
+
+        return data
+
     def __fetchUpdates(queue) -> None :
         """
         __fetchUpdates:

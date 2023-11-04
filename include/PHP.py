@@ -47,7 +47,7 @@ class PHP():
         self.__data = self.__parseCache(cache) if cache else self.fetchData()
     
 
-    def getMajorVersions(self) -> list:
+    def getMajorVersions(self, with_info=False) -> list:
         """
         getMajorVersions:
             Get a list of all major versions
@@ -56,7 +56,14 @@ class PHP():
             list: list of all major versions
         """
 
-        return list(self.__data.keys())
+        # return just majors if requested
+        if not with_info: return list(self.__data.keys())
+        
+        # return majors with complete info
+        res = []
+        for m in self.__data: res.append({k: v for k, v in self.__data[m].items() if k != "releases"})
+        return res
+         
     
 
     def getMinorVersions(self, major : str) -> list:

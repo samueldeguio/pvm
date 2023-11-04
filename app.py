@@ -26,12 +26,14 @@ def local(version: str = typer.Argument(..., help="PHP version to use locally on
 def remove(version: str = typer.Argument(..., help="PHP version to remove")):
     pass
 
-@app.command(help="List all installed PHP versions")
-def ls():
+@app.command(help="List all installed PHP versions" )
+def ls(major : str = typer.Option(None, "--major", "-m", help="List only the given major versions")):
+ 
     """
     ls:
         List all available PHP versions
     """
+    PHPVersionManager.listVersions(console=console, major=major)
 
 @app.command(help="Update PHP repository with latest versions")
 def update():
