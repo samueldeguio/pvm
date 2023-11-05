@@ -20,7 +20,7 @@ def use (version: str = typer.Argument(..., help="PHP version to use")):
 
 @app.command(help="Set the PHP version to use locally on current folder")
 def local(version: str = typer.Argument(..., help="PHP version to use locally on current folder")):
-    pass
+    PHPVersionManager.setLocalVersion(console=console, version=version)
 
 @app.command(help="Unistall the given PHP version")
 def remove(version: str = typer.Argument(..., help="PHP version to remove")):

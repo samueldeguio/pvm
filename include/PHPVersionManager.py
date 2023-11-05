@@ -304,6 +304,45 @@ class PHPVersionManager():
         console.print(f"[white]PHP {version} set as global![/]" )
         return True
 
+
+    @classmethod
+    def setLocalVersion(cls, console : Console, version : str) -> bool :
+        """
+        setLocalVersion:
+            Set the local PHP version to use
+        Args:
+            console (Console): the console object to use
+            version (str): the version to set on the current folder
+
+        Returns:
+            bool: True if the local version was set, False otherwise 
+        """
+        
+        # load data from the repository file
+        php = PHP(cache=cls.__loadRepository())
+
+        # retrieve the version manager database
+        data = cls.__loadDatabase()
+
+        # if this is a major version, get the latest minor version
+        version = php.getLatestVersion(version) if php.majorExists(version) else version
+
+        # check if the given version is installed
+        if version not in data["installed_versions"] : raise PHPVersionManagerException("The given version is not installed")
+
+        # retrieve the current working path
+        path = os.getcwd()
+
+        # set the local version
+        data["local_versions"][path] = version
+
+        # write changes to the database
+        cls.__writeDatabase(data)
+
+        console.print(f"[white]PHP {version} set as locally![/]" )
+        return True
+
+
     @classmethod
     def __loadDatabase(cls) -> dict:
 
@@ -312,7 +351,7 @@ class PHPVersionManager():
             return {
                 "installed_versions" : [],
                 "global_version" : None,
-                "local_versions" : []
+                "local_versions" : {}
             }
 
         # load the database file and return the data
