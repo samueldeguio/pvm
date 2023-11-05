@@ -11,8 +11,8 @@ console = Console()
 ch = ConsoleHelper(console) 
 
 @app.command(help="Install the given PHP version")
-def install(version: str = typer.Argument(..., help="PHP version to install to install")):
-    pass
+def install(version: str):
+   PHPVersionManager.installVersion(console=console, version=version) 
 
 @app.command(help="Set the PHP version to use globally")
 def use (version: str = typer.Argument(..., help="PHP version to use")):

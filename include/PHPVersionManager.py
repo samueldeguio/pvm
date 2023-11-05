@@ -27,7 +27,13 @@ class PHPVersionManager():
         Path to the repository file
     """
     __REPOSITORY_FILE =  os.path.join(__PVM_DIR, "PHP_REPOSITORY")
-    
+
+    """
+    DATABASE_FILE:
+        Path to the database file
+    """
+    __DATABASE_FILE = os.path.join(__PVM_DIR, "PVMDB")
+
     """
     STATUS_MAP:
         Map of status to rich text description
@@ -78,6 +84,8 @@ class PHPVersionManager():
         php = PHP(cache=cls.__loadRepository())
         data = php.getData()
         
+        pvm_data = cls.__loadDatabase()
+        
         # check given data
         if major and major not in php.getMajorVersions() : raise PHPVersionManagerException("Invalid major version given")
 
@@ -90,13 +98,15 @@ class PHPVersionManager():
             grid.add_column("Release Date")
             grid.add_column("Status")
             grid.add_column("Latest", justify="right")
+            grid.add_column("")
             
             for mj_idx, mj in data.items():
                 grid.add_row(
                     "[bold]PHP {}[/]".format(mj["name"]),
                     mj["date"].strftime("%Y-%m-%d") if mj["date"] else "---",
                     cls.__STATUS_MAP[mj["status"]],
-                    mj["latest"] if mj["latest"] else "---"
+                    (mj["latest"] if mj["latest"] else "---"),
+                    "[blue bold]*[/]" if mj["latest"] in pvm_data["installed_versions"] else ""
                 )
         else: 
             data = data[major]["releases"]
@@ -105,12 +115,14 @@ class PHPVersionManager():
                 return True
 
             grid.add_column("Version")
-            grid.add_column("Release Date")
+            grid.add_column("Release Date", justify="right")
+            grid.add_column("")
 
             for mj_idx, mj in data.items(): 
                 grid.add_row(
                     "[bold]PHP {}[/]".format(mj["name"]),
                     mj["date"].strftime("%Y-%m-%d") if mj["date"] else "---",
+                    "[blue bold]*[/]" if mj["name"] in pvm_data["installed_versions"] else ""
                 )
 
         print(grid)
@@ -216,7 +228,84 @@ class PHPVersionManager():
         
         return True
     
+    @classmethod
+    def installVersion(cls, console : Console, version : str) -> bool:
+
+        # load data from the repository file
+        php = PHP(cache=cls.__loadRepository())
+
+        # retrieve the version manager database
+        data = cls.__loadDatabase()
+
+        # if this is a major version, get the latest minor version
+        version = php.getLatestVersion(version) if php.majorExists(version) else version
+       
+        # check if the given version is valid
+        if not version or not php.minorExists(version) and not php.majorExists(version): raise PHPVersionManagerException("Invalid version given")
+
+        # install the given version
+        # TODO : handle also fpm and apache versions
+        try:
+            
+            # attempt to install the php version
+            subprocess.run(["docker", "pull", f"php:{version}-cli"])
+
+            # check if the iamge was installed
+            result = subprocess.run(["docker", "image", "inspect", f"php:{version}-cli"], check=True, capture_output=True)
+            inspect = json.loads(result.stdout.decode())
+            if not inspect : raise PHPVersionManagerException("Error installing PHP image")
+
+            # add the version to the database
+            if version not in data["installed_versions"] : data["installed_versions"].append(version)
+
+            # write changes to the database
+            cls.__writeDatabase(data)
+            
+            console.print(f"[green]PHP {version} pulled correctly![/]" )
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+            raise PHPVersionManagerException("Error installing PHP image")
+
+
+    @classmethod
+    def __loadDatabase(cls) -> dict:
+
+        # check if the database file exists
+        if not os.path.exists(cls.__DATABASE_FILE):
+            return {
+                "installed_versions" : [],
+                "global_version" : None,
+                "local_versions" : []
+            }
+
+        # load the database file and return the data
+        with open(cls.__DATABASE_FILE, 'r') as f: data = json.load(f)
+        
+        return data
+
+
+    @classmethod
+    def __writeDatabase(cls, data : dict) -> bool:
+        """
+        __writeDatabase:
+            Write the database file
+        Args:
+            data (dict): the data to write to the database file
+
+        Returns:
+            bool: True if the database file was written, False otherwise
+        """
     
+        # create the base directory if it does not exist
+        if not os.path.exists(os.path.dirname(cls.__DATABASE_FILE)):
+            os.makedirs(os.path.dirname(cls.__DATABASE_FILE))
+
+        # write it to the file
+        with open(cls.__DATABASE_FILE, "w") as f: json.dump(data, f)
+
+        return True
+
+
     def __loadRepository() -> dict:
         """
         __loadRepository:
