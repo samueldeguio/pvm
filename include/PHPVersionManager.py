@@ -268,6 +268,43 @@ class PHPVersionManager():
 
 
     @classmethod
+    def setGlobalVersion(cls, console : Console, version : str) -> bool:
+        """
+        setGlobalVersion:
+            Set the global PHP version to use
+
+        Args:
+            version (str): the version to set as global
+
+        Throws:
+            PHPVersionManagerException: if the given version is not installed
+
+        Returns:
+            bool: True if the global version was set, False otherwise
+        """
+
+        # load data from the repository file
+        php = PHP(cache=cls.__loadRepository())
+
+        # retrieve the version manager database
+        data = cls.__loadDatabase()
+
+        # if this is a major version, get the latest minor version
+        version = php.getLatestVersion(version) if php.majorExists(version) else version
+
+        # check if the given version is installed
+        if version not in data["installed_versions"] : raise PHPVersionManagerException("The given version is not installed")
+
+        # set the global version
+        data["global_version"] = version
+
+        # write changes to the database
+        cls.__writeDatabase(data)
+
+        console.print(f"[white]PHP {version} set as global![/]" )
+        return True
+
+    @classmethod
     def __loadDatabase(cls) -> dict:
 
         # check if the database file exists

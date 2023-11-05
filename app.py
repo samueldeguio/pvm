@@ -16,7 +16,7 @@ def install(version: str):
 
 @app.command(help="Set the PHP version to use globally")
 def use (version: str = typer.Argument(..., help="PHP version to use")):
-    pass
+    PHPVersionManager.setGlobalVersion(console=console, version=version)
 
 @app.command(help="Set the PHP version to use locally on current folder")
 def local(version: str = typer.Argument(..., help="PHP version to use locally on current folder")):
