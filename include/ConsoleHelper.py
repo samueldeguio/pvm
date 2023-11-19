@@ -23,7 +23,7 @@ class ConsoleHelper:
 
         # if wide option is given style the error message
         if wide:
-            text = text.center(ConsoleHelper.WIDE_OUTPUT_LENGTH, " ")
+            text = " "+text.center(ConsoleHelper.WIDE_OUTPUT_LENGTH, " ")+" "
             text = " " * text.__len__() + "\n" + text + "\n" + " " * text.__len__()
             
         self.console.print(f"[{style}]{text}[/]")
