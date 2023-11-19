@@ -16,6 +16,11 @@ pip3 install -U pyinstaller
 
 printf  "[${GREEN}SUCCESS${NC}] Package Installation complete.\n"
 
+# remove previous builded files
+printf "[${BLUE}INFO${NC}] Cleaning bin folder...\n"
+rm -rf bin/pvm bin/php
+printf "[${GREEN}SUCCESS${NC}] Bin folder cleaned.\n"
+
 # build the executable
 printf  "[${BLUE}INFO${NC}] Building PVM executable...\n"
 pyinstaller --onedir pvm.py
@@ -42,3 +47,4 @@ printf  "${GREEN}Installation completed${NC}\n"
 printf  "Add the following line to your start up console script, and reboot the terminal:\n"
 printf  "\texport PATH=\"\$PATH:$(pwd)/bin/pvm\"\n"
 printf  "\texport PATH=\"\$PATH:$(pwd)/bin/php\"\n"
+printf  "Once the command is available, you can run pvm update to update the PVM.\n"

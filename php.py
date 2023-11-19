@@ -5,8 +5,6 @@ from include.PHPVersionManager import PHPVersionManager, PHPVersionManagerExcept
 
 if __name__ == "__main__":
 
-    start = time.time()
-
     # retrieve all the given arguments
     args = ' '.join(sys.argv[1:])
 
@@ -16,7 +14,5 @@ if __name__ == "__main__":
     # run the command and get the result
     result = subprocess.run(command, shell=True, text=True)
 
-    end = time.time()
-    print("Execution time: "+str(end - start))
     # exit with the same code as the command
     sys.exit(result.returncode)
