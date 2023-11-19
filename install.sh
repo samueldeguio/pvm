@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# setup some variable
+WORKING_DIR=$(pwd)
+
 # setup color variables
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,8 +46,14 @@ mv dist/php bin/
 printf  "[${BLUE}INFO${NC}] Remove build files...\n"
 rm -rf build dist php.spec
 
-printf  "${GREEN}Installation completed${NC}\n"
+# init the PHP Version manager and the PHP command
+cd bin
+pvm init
+
+# changing to the start directory
+cd $WORKING_DIR
+
+printf  "${GREEN}================== Installation completed ==================${NC}\n"
 printf  "Add the following line to your start up console script, and reboot the terminal:\n"
 printf  "\texport PATH=\"\$PATH:$(pwd)/bin/pvm\"\n"
 printf  "\texport PATH=\"\$PATH:$(pwd)/bin/php\"\n"
-printf  "Once the command is available, you can run pvm update to update the PVM.\n"

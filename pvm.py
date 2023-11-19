@@ -59,6 +59,15 @@ def nolocal():
     """
     PHPVersionManager.unsetLocalVersion(console=console)
 
+@app.command(help="Initialize PHP version manager")
+def init():
+    """
+    init:
+        Initialize PHP version manager
+    """
+    console.print("[[blue]INFO[/]] Initializing PHP version manager...")
+    update()
+
 @app.command(help="Update PHP repository with latest versions")
 def update():
     """
