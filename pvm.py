@@ -36,7 +36,7 @@ def ls(major : str = typer.Option(None, "--major", "-m", help="List only the giv
     PHPVersionManager.listVersions(console=console, major=major)
 
 @app.command(help="Show PHP version in use")
-def show(
+def which(
     glob: bool = typer.Option(False, "--global", help="Use this flag to show global PHP version"),
     local : bool = typer.Option(False, "--local", help="Use this flag to show local PHP version")
 ):
