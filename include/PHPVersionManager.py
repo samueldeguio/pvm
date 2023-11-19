@@ -345,6 +345,37 @@ class PHPVersionManager():
         return True
 
     @classmethod
+    def unsetLocalVersion(cls, console : Console) -> bool:
+        """
+        unsetLocalVersion:
+            Remove the local version settings
+
+        Args:
+            console (Console): the console object to use
+
+        Returns:
+            bool: True if the local version was unset, False otherwise
+        """
+
+        # retrieve the version manager database
+        data = cls.__loadDatabase()
+
+        # retrieve the current working path
+        path = os.getcwd()
+
+        # check if the local version is set
+        if path not in data["local_versions"].keys() : raise PHPVersionManagerException("No local version set")
+
+        # unset the local version
+        del data["local_versions"][path]
+
+        # write changes to the database
+        cls.__writeDatabase(data)
+
+        console.print(f"[green]Local PHP version unset![/]" )
+        return True
+
+    @classmethod
     def getPHPVersion(cls, vtype : str = None) -> dict:
         """
         getPHPVersion:

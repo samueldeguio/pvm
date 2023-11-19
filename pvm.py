@@ -36,10 +36,7 @@ def ls(major : str = typer.Option(None, "--major", "-m", help="List only the giv
     PHPVersionManager.listVersions(console=console, major=major)
 
 @app.command(help="Show PHP version in use")
-def which(
-    glob: bool = typer.Option(False, "--global", help="Use this flag to show global PHP version"),
-    local : bool = typer.Option(False, "--local", help="Use this flag to show local PHP version")
-):
+def which( glob: bool = typer.Option(False, "--global", help="Use this flag to show global PHP version"), local : bool = typer.Option(False, "--local", help="Use this flag to show local PHP version")):
     """
     show:
         Show PHP version in use
@@ -54,6 +51,13 @@ def which(
     
     console.print("You are running PHP version [white bold]{}[/] {}ly".format(data["version"], data["type"]))
 
+@app.command(help="Remove the local PHP version settings")
+def nolocal():
+    """
+    nolocal:
+        Remove the local version settings
+    """
+    PHPVersionManager.unsetLocalVersion(console=console)
 
 @app.command(help="Update PHP repository with latest versions")
 def update():
