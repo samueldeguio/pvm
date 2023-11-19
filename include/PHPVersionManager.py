@@ -47,6 +47,8 @@ class PHPVersionManager():
         Status.FUTURE_RELEASE : "[purple]Future Release[/]",
     }
 
+    __PHP_COMMAND = "docker run --rm -v $PWD:/usr/src/app -w /usr/src/app {php} php"
+
     @classmethod
     def checkDependencies(cls) -> bool :
         """
@@ -339,9 +341,33 @@ class PHPVersionManager():
         # write changes to the database
         cls.__writeDatabase(data)
 
-        console.print(f"[white]PHP {version} set as locally![/]" )
+        console.print(f"[white]PHP {version} set locally![/]" )
         return True
 
+    @classmethod
+    def getPHPCommand(cls):
+        """
+        getPHPCommand:
+            Get the PHP command to use
+
+        Returns:
+            str: the PHP command to use
+        """
+
+        # retrieve the version manager database
+        data = PHPVersionManager.__loadDatabase()
+        
+        php = None
+        
+        # check if the local version is set otherwise use the global version
+        if os.getcwd() in data["local_versions"].keys() : php = f"php:{data['local_versions'][os.getcwd()]}-cli"
+        elif data["global_version"] is not None : php = f"php:{data['global_version']}-cli"
+
+        # check if a PHP version is set
+        if php is None : raise PHPVersionManagerException("No PHP version set, view full documentation at `pvm --help`")
+
+        # return the default command
+        return cls.__PHP_COMMAND.format(php=php)
 
     @classmethod
     def __loadDatabase(cls) -> dict:
