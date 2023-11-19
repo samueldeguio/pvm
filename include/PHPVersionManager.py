@@ -47,7 +47,7 @@ class PHPVersionManager():
         Status.FUTURE_RELEASE : "[purple]Future Release[/]",
     }
 
-    __PHP_COMMAND = "docker run --rm -v $PWD:/usr/src/app -w /usr/src/app {php} php"
+    __PHP_COMMAND = "docker run --rm -v $PWD:/usr/src/app -w /usr/src/app php:{version}-cli php"
 
     @classmethod
     def checkDependencies(cls) -> bool :
@@ -345,6 +345,26 @@ class PHPVersionManager():
         return True
 
     @classmethod
+    def getPHPVersion(cls, vtype : str = None) -> dict:
+        """
+        getPHPVersion:
+            Get the PHP version in use
+
+        Args:
+            vtype (str, None): the type of version to get
+
+        Returns:
+            str: the PHP version in use
+        """
+
+        # retrieve the version manager database
+        data = PHPVersionManager.__loadDatabase()
+        
+        # return the version with the highest priority or the requested one
+        if os.getcwd() in data["local_versions"].keys() and vtype != "global": return { "type" : "local", "version" : data["local_versions"][os.getcwd()]}
+        else: return {"type" : "global", "version" : data["global_version"]}
+
+    @classmethod
     def getPHPCommand(cls):
         """
         getPHPCommand:
@@ -354,20 +374,15 @@ class PHPVersionManager():
             str: the PHP command to use
         """
 
-        # retrieve the version manager database
-        data = PHPVersionManager.__loadDatabase()
-        
-        php = None
-        
-        # check if the local version is set otherwise use the global version
-        if os.getcwd() in data["local_versions"].keys() : php = f"php:{data['local_versions'][os.getcwd()]}-cli"
-        elif data["global_version"] is not None : php = f"php:{data['global_version']}-cli"
 
+        # retrieve the PHP version in use 
+        data = cls.getPHPVersion()
+        
         # check if a PHP version is set
-        if php is None : raise PHPVersionManagerException("No PHP version set, view full documentation at `pvm --help`")
+        if data["version"] is None : raise PHPVersionManagerException("No PHP version set, view full documentation at `pvm --help`")
 
         # return the default command
-        return cls.__PHP_COMMAND.format(php=php)
+        return cls.__PHP_COMMAND.format(version=data["version"])
 
     @classmethod
     def __loadDatabase(cls) -> dict:

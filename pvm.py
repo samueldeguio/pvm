@@ -26,7 +26,7 @@ def local(version: str = typer.Argument(..., help="PHP version to use locally on
 def remove(version: str = typer.Argument(..., help="PHP version to remove")):
     pass
 
-@app.command(help="List all installed PHP versions" )
+@app.command(help="List all available PHP versions" )
 def ls(major : str = typer.Option(None, "--major", "-m", help="List only the given major versions")):
  
     """
@@ -34,6 +34,26 @@ def ls(major : str = typer.Option(None, "--major", "-m", help="List only the giv
         List all available PHP versions
     """
     PHPVersionManager.listVersions(console=console, major=major)
+
+@app.command(help="Show PHP version in use")
+def show(
+    glob: bool = typer.Option(False, "--global", help="Use this flag to show global PHP version"),
+    local : bool = typer.Option(False, "--local", help="Use this flag to show local PHP version")
+):
+    """
+    show:
+        Show PHP version in use
+    """
+    vtype = None
+    if glob: vtype = "global"
+    elif local: vtype = "local"
+
+    data = PHPVersionManager.getPHPVersion(vtype=vtype)
+    
+    if data["version"] is None : raise PHPVersionManagerException("No PHP version set, view full documentation at `pvm --help`")
+    
+    console.print("You are running PHP version [white bold]{}[/] {}ly".format(data["version"], data["type"]))
+
 
 @app.command(help="Update PHP repository with latest versions")
 def update():
