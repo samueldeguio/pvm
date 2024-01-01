@@ -10,6 +10,7 @@ from queue import Queue
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, RenderableColumn
 from rich.console import Console
 from rich.table import Table
+from rich.prompt import Confirm
 from rich import print
 
 from include.PHP import PHP, Status
@@ -252,7 +253,7 @@ class PHPVersionManager():
             # attempt to install the php version
             subprocess.run(["docker", "pull", f"php:{version}-cli"])
 
-            # check if the iamge was installed
+            # check if the image was installed
             result = subprocess.run(["docker", "image", "inspect", f"php:{version}-cli"], check=True, capture_output=True)
             inspect = json.loads(result.stdout.decode())
             if not inspect : raise PHPVersionManagerException("Error installing PHP image")
@@ -268,6 +269,68 @@ class PHPVersionManager():
         except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
             raise PHPVersionManagerException("Error installing PHP image")
 
+
+    @classmethod
+    def removeVersion(cls, console : Console, version : str) -> bool:
+        """
+        removeVersion:
+            Remove the given PHP version
+
+        Args:
+            version (str): the version to remove
+
+        Throws:
+            PHPVersionManagerException: if the given version is not installed
+
+        Returns:
+            bool: True if the version was removed, False otherwise
+        """
+        
+        # load data from the repository file
+        php = PHP(cache=cls.__loadRepository())
+
+        # retrieve the version manager database
+        data = cls.__loadDatabase()
+
+        # if this is a major version, get the latest minor version
+        version = php.getLatestVersion(version) if php.majorExists(version) else version
+
+        # check if the given version is installed
+        if version not in data["installed_versions"] : raise PHPVersionManagerException("The given version is not installed")
+
+        # ask for user confirmation
+        if not Confirm.ask(f"The following version will be removed : {version}\nAre you sure you want to proceed?", console=console, default=True):
+            console.print("[green]No changes were made![/]")
+            return False
+
+        # retrieve docker image id
+        result = subprocess.run(["docker","images",f"php:{version}-cli","-a","-q"], check=True, capture_output=True)
+        image_id = result.stdout.decode().strip()
+
+        # check if the image was retrieved
+        if not image_id : raise PHPVersionManagerException("Error retrieving docker image, something might be off with docker")
+
+        # remove the image from the system to free up space
+        result = subprocess.run(["docker", "rmi", image_id], check=True)
+
+        # check if the image was removed
+        if result.returncode != 0 : raise PHPVersionManagerException("Error removing docker image, something might be off with docker")
+
+        # remove the version from the database
+        data["installed_versions"].remove(version)
+
+        # remove the version from the local versions
+        paths = [key for key, val in data["local_versions"].items() if val == version]
+        for path in paths: del data["local_versions"][path]
+
+        # remove the version from the global version
+        if data["global_version"] == version : data["global_version"] = None
+
+        # write changes to the database
+        cls.__writeDatabase(data)
+
+        console.print(f"[green]PHP {version} removed! All local paths using this version were reverted to the global version[/]" )
+        return True
 
     @classmethod
     def setGlobalVersion(cls, console : Console, version : str) -> bool:
