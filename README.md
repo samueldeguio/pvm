@@ -1,7 +1,7 @@
-# PVM (PHP Versioning System) 
+# PVM (PHP Version Managment) 
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samueldeguio/pvm/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/samueldeguio/pvm/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/samueldeguio/pvm/releases/tag/v1.0.1)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/samueldeguio/pvm)
 
 
@@ -18,7 +18,7 @@
 ## Requirements 📋
 
  - 🐍 Python 3 Installed on your system 
-- 🐳 Docker installed on your system
+ - 🐳 Docker installed on your system
 
 ## Installation 🚀
 
